@@ -1,8 +1,22 @@
 import Debug.Trace
 import System.Random
 import Control.Monad
+import Data.Ratio
 
-main = putStrLn (show (ack 3 3))
+main = putStrLn (show $ tailfib 0 1 100000)
+
+fib 0 = 0
+fib 1 = 1
+fib n = fib (n-1) + fib(n-2)
+
+tailfib _ y 0 = y
+tailfib x y n = tailfib y (x+y) (n-1)
+
+divs n = [x | x <- [1..n], mod n x == 0]
+divsum n = sum $ divs n
+divquot n = (divsum n) % n
+isperf n = (denominator ((divquot n) + 1%2)) == 1
+findperfs m n = [ x | x <- [m..n], isperf x]
 
 myFunc :: Int -> [Char]
 myFunc 1 = "one"
