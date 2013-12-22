@@ -1,3 +1,5 @@
+module TicTacToe where
+
 import CommonStatistics
 import Control.Applicative
 import Data.List
@@ -10,7 +12,7 @@ emptyField = TTTField(' ',' ',' ')(' ',' ',' ')(' ',' ',' ')
 
 getResponse :: Agent -> TTTField -> (Agent,Int)
 getResponse ag (TTTField (a, b, c)(d, e, f)(g, h, i)) =
-	let (mem,[actionx, actionxs]) =
+	let (mem,actions) =
 		(doFunc ag) [[a,b,c],[d,e,f],[g,h,i]] (personalMemory ag)
 	in (Agent{
 		agentID = agentID ag,
@@ -18,25 +20,35 @@ getResponse ag (TTTField (a, b, c)(d, e, f)(g, h, i)) =
 		doFunc = doFunc ag,
 		evFunc = evFunc ag,
 		personalMemory = mem
-	}, read actionx)
+	}, read $ head actions)
 --getResponse ag emptyField = 0
 
 versus :: Agent -> Agent -> (Int, Agent, Agent)
 versus a b =
-	let (winner, aag, bag) = turns a b emptyField
-	in ((if (winner == 1) then (agentID aag) else (agentID bag)),aag,bag)
+	let (winner, aag, bag) = turns 0 a b emptyField
+	in ((if winner == 0 then 0 else agentID (if winner == 1 then aag else bag)) ,aag, bag)
 
-turns :: Agent -> Agent -> TTTField -> (Int, Agent, Agent) --either TTTField or Int
-turns a b field
+turns :: Int -> Agent -> Agent -> TTTField -> (Int, Agent, Agent) --either TTTField or Int
+turns 9 a b field = (0, a, b) -- 9 -> 4.5
+turns x a b field
 	| getWinner afield /= ' ' = (1, aag,b)
 	| getWinner bfield /= ' ' = (2, aag, bag)
-	| otherwise = turns aag bag bfield
+	| otherwise = turns (x+1) aag bag bfield
 	where
-		(afield,aag) = (makeTurn a field 'X')
-		(bfield,bag) = (makeTurn b afield 'O')
+		(afield,aag) = makeTurn a field 'X'
+		(bfield,bag) = makeTurn b afield 'O'
 
 makeTurn :: Agent -> TTTField -> Char -> (TTTField,Agent)
 makeTurn ag (TTTField (a, b, c)(d, e, f)(g, h, i)) symb
+	| and $ (fieldID == 1) :  [(a /= ' ')] = ((TTTField (a, b, c)(d, e, f)(g, h, i)), ag')
+	| and $ (fieldID == 2) :  [(b /= ' ')] = ((TTTField (a, b, c)(d, e, f)(g, h, i)), ag')
+	| and $ (fieldID == 3) :  [(c /= ' ')] = ((TTTField (a, b, c)(d, e, f)(g, h, i)), ag')
+	| and $ (fieldID == 4) :  [(d /= ' ')] = ((TTTField (a, b, c)(d, e, f)(g, h, i)), ag')
+	| and $ (fieldID == 5) :  [(e /= ' ')] = ((TTTField (a, b, c)(d, e, f)(g, h, i)), ag')
+	| and $ (fieldID == 6) :  [(f /= ' ')] = ((TTTField (a, b, c)(d, e, f)(g, h, i)), ag')
+	| and $ (fieldID == 7) :  [(g /= ' ')] = ((TTTField (a, b, c)(d, e, f)(g, h, i)), ag')
+	| and $ (fieldID == 8) :  [(h /= ' ')] = ((TTTField (a, b, c)(d, e, f)(g, h, i)), ag')
+	| and $ (fieldID == 9) :  [(i /= ' ')] = ((TTTField (a, b, c)(d, e, f)(g, h, i)), ag')
 	| fieldID <= 2 = (TTTField 
 		(case fieldID of
 			1 -> (symb, b, c)
@@ -44,7 +56,7 @@ makeTurn ag (TTTField (a, b, c)(d, e, f)(g, h, i)) symb
 			3 -> (a, b, symb)
 		)
 		(d,e,f)
-		(g,h,i),ag)
+		(g,h,i),ag')
 	| fieldID <= 5 = (TTTField
 		(a,b,c)
 		(case fieldID of
@@ -52,7 +64,7 @@ makeTurn ag (TTTField (a, b, c)(d, e, f)(g, h, i)) symb
 			5 -> (d, symb, f)
 			6 -> (d, e, symb)
 		)
-		(g,h,i),ag)
+		(g,h,i),ag')
 	| otherwise = (TTTField
 		(a,b,c)
 		(d,e,f)
@@ -60,8 +72,8 @@ makeTurn ag (TTTField (a, b, c)(d, e, f)(g, h, i)) symb
 			7 -> (symb, h, i)
 			8 -> (g, symb, i)
 			9 -> (g, h, symb)
-		),ag)
-	where (ag,fieldID) = getResponse ag (TTTField (a, b, c)(d, e, f)(g, h, i)) 
+		),ag')
+	where (ag',fieldID) = getResponse ag (TTTField (a, b, c)(d, e, f)(g, h, i)) 
 
 getWinner :: TTTField -> Char
 getWinner (TTTField ('X','X','X') _ _) = 'X'
@@ -94,10 +106,10 @@ tttHelp agents (agAID,agBID) =
 		(winner, agA', agB') = versus agA agB
 	in
 		([
-			if (agentID x == agentID agA)
+			if agentID x == agentID agA
 			then agA'
 			else (
-				if (agentID x ==  agentID agB)
+				if agentID x ==  agentID agB
 				then agB'
 				else x
 			) | x <- agents], winner)
@@ -106,15 +118,8 @@ tttFunc :: [Agent] -> () -> (StatUpdate, [Agent], ())
 tttFunc agents _ =
 	let
 		agentIDs = [agentID a | a <- agents]
-		tuples = (,) <$> agentIDs <*> agentIDs
-		(agents, winnerIDs) = mapAccumL (tttHelp) (agents) (tuples)
+		--tuples = (,) <$> agentIDs <*> agentIDs
+		tuples = [(agentID x, agentID y)| x <- agents, y <- agents, (agentID x) /= (agentID y)]
+		(newAgents, winnerIDs) = mapAccumL tttHelp agents tuples
 	in
-		(StatUpdate{newVictories = winnerIDs},agents, ())
-
---tttFunc :: [Agent] -> () -> (StatUpdate, ())
---tttFunc agents _ =
---	(StatUpdate{
---		newVictories =
---			[versus x y | x <- agents, y <- agents,
---				(agentID x) /= (agentID y)]
---	},())
+		(StatUpdate{newVictories = winnerIDs},newAgents, ())

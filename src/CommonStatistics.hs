@@ -1,8 +1,9 @@
 module CommonStatistics where
 
-data Memory = Memory{ --an Agent's internal memory
-	stuffs :: [Int]
-} deriving (Show)
+--data Memory = Memory{ --an Agent's internal memory
+--	stuffs :: [Int]
+--} deriving (Show)
+type Memory = [Int]
 
 data StatUpdate = StatUpdate{
 	newVictories :: [Int]

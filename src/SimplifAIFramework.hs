@@ -2,7 +2,58 @@
 
 import CommonStatistics
 import qualified Data.IntMap.Lazy
-import Control.Arrow
+--import Control.Arrow
+import TicTacToe
+
+
+baseDoFunc :: [String] -> Memory -> (Memory, [String])
+baseEvFunc :: [String] -> Memory -> (Memory, String)
+baseEvFunc (source:othersources) mem = (2:mem, source)
+baseDoFunc ((a:b:[c]):(d:e:[f]):(g:h:[i]):[] ) mem = (1:mem, "1":"2":"3":"4":"5":"6":"7":"8":["9"])
+--definitely need a random number generator in there^...
+--Don't wanna break the pure functionality though...
+--Maybe I should inject a random number as a param. Or maybe a few random numbers.
+
+someFunc =
+	let
+		st = Statistics {victories = Data.IntMap.Lazy.fromList[(0,0),(1,0),(2,0),(3,0)]}
+		ag =
+			[
+				Agent{
+					agentID = 1,
+					sourcePath = "path",
+					doFunc = baseDoFunc,
+					evFunc = baseEvFunc,
+					personalMemory = []
+				},
+				Agent{
+					agentID = 3,
+					sourcePath = "3path",
+					doFunc = baseDoFunc,
+					evFunc = baseEvFunc,
+					personalMemory = []
+				}
+			]
+		state = SimState{
+			state = (),
+			gameFunc = tttFunc
+		}
+		sim = Simulation{
+			agents = ag,
+			stats= st,
+			sim= state
+		}
+	in sim
+
+test =
+	let (upd, state, ag) = update (sim someFunc) (agents someFunc)
+	in Simulation{
+		agents = ag,
+		stats = statMerge upd (stats someFunc),
+		sim= state
+	}
+
+main = putStrLn (show $ [1..5])
 
 data Statistics = Statistics{
 	victories :: Data.IntMap.Lazy.IntMap Int--victories by sID
@@ -11,10 +62,14 @@ data Statistics = Statistics{
 data SimState =
 	forall state. SimState {
 		state :: state,
-		gameFunc :: [Agent] -> state -> (StatUpdate, state)
+		gameFunc :: [Agent] -> state -> (StatUpdate, [Agent], state)
 	}--show?
 
-update (SimState s f) agents = (second (flip SimState f)) (f agents s)
+update (SimState s f) agents =
+	let
+		(upd, ags, newstate) = f agents s
+	in
+		(upd,SimState{state = newstate, gameFunc = f},ags)
 
 data Simulation = Simulation{
 	agents :: [Agent],
@@ -39,18 +94,16 @@ statMerge upd base = Statistics{
 		(newVictories upd)
 	}
 
---run :: Simulation -> Simulation
---run s =
---	let
---		--func = gameFunc sim s (state sim s)
---		--diff = (gameFunc  (sim s) $ sim s) $ agents s state
---		--diff = (gameFunc  $ (sim s)) (agents s) (state $ (sim s))
---	in
---		Simulation{
---			agents = agents s,
---			stats = stats s--statMerge diff $ stats s,
---			sim = sim s
---		}
+run :: Simulation -> Simulation
+run s =
+	let
+		(statupdate, state, newAgents) = update (sim s) (agents s) 
+	in
+		Simulation{
+			agents = newAgents,
+			stats = statMerge statupdate $ stats s,
+			sim = state
+		}
 
 --step s = Simulation( foldToStats[(recordStats a b)| a <-
 --s.Agentslist, b <- s.Agentslist, a != b],
