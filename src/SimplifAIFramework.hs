@@ -2,17 +2,17 @@
 
 import CommonStatistics
 import qualified Data.IntMap.Lazy
---import Control.Arrow
 import TicTacToe
 
+--------------------------------------------------------------------------------
+--------------------------------Test Data Below---------------------------------
+--------------------------------------------------------------------------------
 
-baseDoFunc :: [String] -> Memory -> (Memory, [String])
 baseEvFunc :: [String] -> Memory -> (Memory, String)
+baseDoFunc :: [String] -> Memory -> (Memory, [String])
 baseEvFunc (source:othersources) mem = (2:mem, source)
 baseDoFunc ((a:b:[c]):(d:e:[f]):(g:h:[i]):[] ) mem = (1:mem, "1":"2":"3":"4":"5":"6":"7":"8":["9"])
 --definitely need a random number generator in there^...
---Don't wanna break the pure functionality though...
---Maybe I should inject a random number as a param. Or maybe a few random numbers.
 
 someFunc =
 	let
@@ -36,7 +36,7 @@ someFunc =
 			]
 		state = SimState{
 			state = (),
-			gameFunc = tttFunc
+			stepFunc = tttFunc
 		}
 		sim = Simulation{
 			agents = ag,
@@ -53,35 +53,18 @@ test =
 		sim= state
 	}
 
+--------------------------------------------------------------------------------
+--------------------------------Test Data Above---------------------------------
+--------------------------------------------------------------------------------
+
+--test I guess
 main = putStrLn (show $ [1..5])
 
 data Statistics = Statistics{
-	victories :: Data.IntMap.Lazy.IntMap Int--victories by sID
+	victories :: Data.IntMap.Lazy.IntMap Int--count of victories by agentID
 } deriving (Show)
 
-data SimState =
-	forall state. SimState {
-		state :: state,
-		gameFunc :: [Agent] -> state -> (StatUpdate, [Agent], state)
-	}--show?
-
-update (SimState s f) agents =
-	let
-		(upd, ags, newstate) = f agents s
-	in
-		(upd,SimState{state = newstate, gameFunc = f},ags)
-
-data Simulation = Simulation{
-	agents :: [Agent],
-	stats :: Statistics,
-	--simFunc :: [Agent] -> State -> (StatUpdate, State),
-	--simState :: State
-	sim :: SimState
-}
-
-instance Show Simulation where 
-	show (Simulation {agents = ag, stats = stat, sim = state})= show(ag, stat) -- = show (ag, stat, state)
-
+--merges a StatUpdate into Statistics
 statMerge :: StatUpdate -> Statistics -> Statistics
 statMerge upd base = Statistics{
 	victories = foldl
@@ -94,6 +77,32 @@ statMerge upd base = Statistics{
 		(newVictories upd)
 	}
 
+data SimState =
+	forall state. SimState {
+		--agnostic of the actual type of the game's state.
+		state :: state,
+
+		--function that steps the simulation
+		stepFunc :: [Agent] -> state -> (StatUpdate, [Agent], state)
+	}
+
+--updates a SimState/Agents set and produces a StatUpdate in the process
+update :: SimState -> [Agent] -> (StatUpdate, SimState, [Agent])
+update (SimState s f) agents =
+	let
+		(upd, ags, newstate) = f agents s
+	in
+		(upd,SimState{state = newstate, stepFunc = f},ags)
+
+data Simulation = Simulation{
+	agents :: [Agent],
+	stats :: Statistics,
+	sim :: SimState
+}
+
+instance Show Simulation where 
+	show (Simulation {agents = ag, stats = stat, sim = state})= show(ag, stat) -- = show (ag, stat, state)
+
 run :: Simulation -> Simulation
 run s =
 	let
@@ -104,8 +113,3 @@ run s =
 			stats = statMerge statupdate $ stats s,
 			sim = state
 		}
-
---step s = Simulation( foldToStats[(recordStats a b)| a <-
---s.Agentslist, b <- s.Agentslist, a != b],
---[getEvolved of A | A<- (s.Agentlist), A needs evolution])
---multiple evolutions??
