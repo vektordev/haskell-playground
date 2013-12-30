@@ -3,6 +3,7 @@
 import CommonStatistics
 import qualified Data.IntMap.Lazy
 import TicTacToe
+import Control.Monad
 
 --------------------------------------------------------------------------------
 --------------------------------Test Data Below---------------------------------
@@ -113,3 +114,48 @@ run s =
 			stats = statMerge statupdate $ stats s,
 			sim = state
 		}
+
+scanSubFolder :: [String] -> String -> IO ([(Agent, Int)])
+scanSubFolder [] path = return []
+scanSubFolder (x:xs) path = liftM2 (++) (scanSubFolder xs path) (scanFolder (path ++ "/" ++ x))
+
+scanFolder :: String -> IO ([(Agent, Int)])
+--scanFolder path = scanSubFolder [] path
+scanFolder path = do
+	contents <- readFile $ path ++ "/Statistics"
+	let
+		sublines = lines contents
+		id = read (filter (`elem` ['0'..'9']) (head (filter (\ line -> (take 2 line) == ":i") sublines)))
+		vict = read (filter (`elem` ['0'..'9']) (head (filter (\ line -> (take 2 line) == ":v") sublines)))
+		selfCont =
+			(Agent{
+				agentID = id,
+				sourcePath = path ++ "/Source.hs",
+				doFunc = baseDoFunc,
+				evFunc = baseEvFunc,
+				personalMemory = []
+			},vict)
+	subFolderCont <-
+		scanSubFolder
+			(map
+				(\ (':' : 'c' : line) -> filter (`elem` ['a'..'z']++['0'..'9']) line)
+				(filter (\ line -> (take 2 line) == ":c") sublines)) path
+	return (selfCont : subFolderCont)
+
+load :: String -> SimState -> IO (Simulation)
+load path simIn = do
+	folderscan <- scanFolder path
+	let
+		(loadedagents, tuples) = foldl
+			(\ (prevagents, prevtuples) (newagent, newVictories) -> (newagent : prevagents, (agentID newagent,newVictories) : prevtuples))
+			([],[])
+			folderscan
+		victoryMap = Data.IntMap.Lazy.fromList tuples
+	return Simulation{
+		agents = loadedagents,
+		stats = Statistics {victories = victoryMap},
+		sim = simIn
+	}
+
+testload = load 
+

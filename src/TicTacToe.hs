@@ -98,6 +98,8 @@ getWinner x = ' '
 
 stuff agents =(,) <$> agents <*> agents
 
+initialTTTState = ()
+
 tttHelp :: [Agent] -> (Int, Int) -> ([Agent], Int)
 tttHelp agents (agAID,agBID) =
 	let

@@ -1,0 +1,7 @@
+#:c marks a child folder
+#:i marks ID
+#:v marks victories
+
+:i 1
+:v 0
+
