@@ -3,8 +3,25 @@ import System.Random
 import Control.Monad
 import Data.Ratio
 import Data.Maybe
+import Graphics.Vty.Widgets.All
+--import UI.NCurses
 
-main = putStrLn (show $ tailfib 0 1 100000)
+--main = putStrLn (show $ tailfib 0 1 100000)
+
+import qualified Data.Text as T
+
+main :: IO ()
+main = do
+	e <- editWidget
+	ui <- centered e
+	fg <- newFocusGroup
+	addToFocusGroup fg e
+
+	c <- newCollection
+	addToCollection c ui fg
+	e `onActivate` \this ->
+		getEditText this >>= (error . ("You entered: " ++) . T.unpack)
+	runUi c defaultContext
 
 fib 0 = 0
 fib 1 = 1

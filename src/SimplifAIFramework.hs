@@ -4,6 +4,8 @@ import CommonStatistics
 import qualified Data.IntMap.Lazy
 import TicTacToe
 import Control.Monad
+import Data.Ord
+import Data.List
 
 --------------------------------------------------------------------------------
 --------------------------------Test Data Below---------------------------------
@@ -17,7 +19,8 @@ baseDoFunc ((a:b:[c]):(d:e:[f]):(g:h:[i]):[] ) mem = (1:mem, "1":"2":"3":"4":"5"
 
 someFunc =
 	let
-		st = Statistics {victories = Data.IntMap.Lazy.fromList[(0,0),(1,0),(2,0),(3,0)]}
+		st = map (\ (a,b) -> Statistics{aID = a, victories = b}) [(0,0),(1,0),(2,0),(3,0)]
+--Statistics {victories = Data.IntMap.Lazy.fromList[(0,0),(1,0),(2,0),(3,0)]}
 		ag =
 			[
 				Agent{
@@ -62,21 +65,28 @@ test =
 main = putStrLn (show $ [1..5])
 
 data Statistics = Statistics{
-	victories :: Data.IntMap.Lazy.IntMap Int--count of victories by agentID
+	aID :: Int,
+	victories :: Int--count of victories by agentID
 } deriving (Show)
 
 --merges a StatUpdate into Statistics
-statMerge :: StatUpdate -> Statistics -> Statistics
-statMerge upd base = Statistics{
-	victories = foldl
-		(\datamap key -> Data.IntMap.Lazy.update
-			(\count -> Just (count + 1))
-			key
-			datamap
-		)
-		(victories base)
-		(newVictories upd)
-	}
+statMerge :: StatUpdate -> [Statistics] -> [Statistics]
+statMerge upd base = foldl
+	(\base2 updAID -> (map
+		(\ baseElem -> if aID baseElem == updAID then  Statistics { aID = updAID, victories = 1+ victories baseElem} else baseElem)
+		base2))
+	base
+	(newVictories upd)
+--statMerge upd base = Statistics{
+--	victories = foldl
+--		(\datamap key -> Data.IntMap.Lazy.update
+--			(\count -> Just (count + 1))
+--			key
+--			datamap
+--		)
+--		(victories base)
+--		(newVictories upd)
+--	}
 
 data SimState =
 	forall state. SimState {
@@ -97,7 +107,7 @@ update (SimState s f) agents =
 
 data Simulation = Simulation{
 	agents :: [Agent],
-	stats :: Statistics,
+	stats :: [Statistics],
 	sim :: SimState
 }
 
@@ -114,6 +124,9 @@ run s =
 			stats = statMerge statupdate $ stats s,
 			sim = state
 		}
+
+filterAgents :: [Agent] -> Statistics -> Int -> [Agent]
+filterAgents agents stats num = filter (elem flip (take num sortBy (comparing victories) stats)) agents 
 
 scanSubFolder :: [String] -> String -> IO ([(Agent, Int)])
 scanSubFolder [] path = return []
@@ -150,10 +163,10 @@ load path simIn = do
 			(\ (prevagents, prevtuples) (newagent, newVictories) -> (newagent : prevagents, (agentID newagent,newVictories) : prevtuples))
 			([],[])
 			folderscan
-		victoryMap = Data.IntMap.Lazy.fromList tuples
+		--victoryMap = Data.IntMap.Lazy.fromList tuples
 	return Simulation{
 		agents = loadedagents,
-		stats = Statistics {victories = victoryMap},
+		stats = map (\ (a,b) -> Statistics{aID = a, victories = b}) tuples,
 		sim = simIn
 	}
 
