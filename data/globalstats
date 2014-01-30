@@ -1,0 +1,4 @@
+#global data. AgentIDs are absolutely unique.
+
+#maximum assigned ID
+:idmax 1

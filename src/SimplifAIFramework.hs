@@ -49,6 +49,8 @@ someFunc =
 		}
 	in sim
 
+testLoad = load ["../data/default/"] $ sim someFunc
+
 test =
 	let (upd, state, ag) = update (sim someFunc) (agents someFunc)
 	in Simulation{
@@ -111,53 +113,105 @@ data Simulation = Simulation{
 	sim :: SimState
 }
 
+data Options = Options{
+	game :: String,
+	gameParams :: [String],
+	agentSets :: [String],
+	turns :: Int
+}
+
 instance Show Simulation where 
 	show (Simulation {agents = ag, stats = stat, sim = state})= show(ag, stat) -- = show (ag, stat, state)
 
-run :: Simulation -> Simulation
-run s =
+--run :: Options -> IO ()
+--run opt =
+--	let initialstate = 
+--	in step s $ turns opt
+
+
+--step :: Simulation -> Int -> IO (Simulation)
+--step s 0 = s
+--step s steps =
+--	let
+--		(statupdate, state, newAgents) = update (sim s) (agents s) 
+--	return step Simulation{
+--		agents = newAgents,
+--		stats = statMerge statupdate $ stats s,
+--		sim = state
+--	} (steps-1)
+
+filterAgents :: [Agent] -> [Statistics] -> Int -> [Agent]
+--sort Agents, filter out the weaker ones, return a list of the num best Agents
+filterAgents agents stats num =
 	let
-		(statupdate, state, newAgents) = update (sim s) (agents s) 
+		sorted = sortBy (comparing victories) stats
+		sortedandfiltered = take num sorted
+	in filter (\agent -> elem (agentID agent) (map aID sortedandfiltered)) agents
+
+
+--scanSubFolder :: [String] -> String -> IO ([(Agent, Int)])
+--scanSubFolder [] path = return []
+--scanSubFolder (x:xs) path = liftM2 (++) (scanSubFolder xs path) (scanFolder (path ++ "/" ++ x))
+
+--scanFolder :: String -> IO ([(Agent, Int)])
+--scanFolder path = scanSubFolder [] path
+--scanFolder path = do
+--	contents <- readFile $ path ++ "/Statistics"
+--	let
+--		sublines = lines contents
+--		id = read (filter (`elem` ['0'..'9']) (head (filter (\ line -> (take 2 line) == ":i") sublines)))
+--		vict = read (filter (`elem` ['0'..'9']) (head (filter (\ line -> (take 2 line) == ":v") sublines)))
+--		selfCont =
+--			(Agent{
+--				agentID = id,
+--				sourcePath = path ++ "/Source.hs",
+--				doFunc = baseDoFunc,
+--				evFunc = baseEvFunc,
+--				personalMemory = []
+--			},vict)
+--	subFolderCont <-
+--		scanSubFolder
+--			(map
+--				(\ (':' : 'c' : line) -> filter (`elem` ['a'..'z']++['0'..'9']) line)
+--				(filter (\ line -> (take 2 line) == ":c") sublines)) path
+--	return (selfCont : subFolderCont)
+
+parseAgent :: (String, String) -> (Agent, Int)
+parseAgent (file, path) =
+	let
+		sublines = lines file
+		id = read $ filter (`elem` ['0'..'9']) $ head $ filter (\line -> ":i" == (take 2 line) ) sublines
+		vict = read $ filter (`elem` ['0'..'9']) $ head $ filter (\line -> ":v" == (take 2 line) ) sublines
 	in
-		Simulation{
-			agents = newAgents,
-			stats = statMerge statupdate $ stats s,
-			sim = state
-		}
-
-filterAgents :: [Agent] -> Statistics -> Int -> [Agent]
-filterAgents agents stats num = filter (elem flip (take num sortBy (comparing victories) stats)) agents 
-
-scanSubFolder :: [String] -> String -> IO ([(Agent, Int)])
-scanSubFolder [] path = return []
-scanSubFolder (x:xs) path = liftM2 (++) (scanSubFolder xs path) (scanFolder (path ++ "/" ++ x))
+		(Agent{
+			agentID = id,
+			sourcePath = path,
+			doFunc = baseDoFunc,
+			evFunc = baseEvFunc,
+			personalMemory = []
+		},vict)
 
 scanFolder :: String -> IO ([(Agent, Int)])
---scanFolder path = scanSubFolder [] path
+--path should have / as last char
 scanFolder path = do
-	contents <- readFile $ path ++ "/Statistics"
+	contentlist <- readFile $ path ++ "/AgentSetStats"
 	let
-		sublines = lines contents
-		id = read (filter (`elem` ['0'..'9']) (head (filter (\ line -> (take 2 line) == ":i") sublines)))
-		vict = read (filter (`elem` ['0'..'9']) (head (filter (\ line -> (take 2 line) == ":v") sublines)))
-		selfCont =
-			(Agent{
-				agentID = id,
-				sourcePath = path ++ "/Source.hs",
-				doFunc = baseDoFunc,
-				evFunc = baseEvFunc,
-				personalMemory = []
-			},vict)
-	subFolderCont <-
-		scanSubFolder
-			(map
-				(\ (':' : 'c' : line) -> filter (`elem` ['a'..'z']++['0'..'9']) line)
-				(filter (\ line -> (take 2 line) == ":c") sublines)) path
-	return (selfCont : subFolderCont)
+		agentIDs = map
+			(\ text -> read $ filter (`elem` ['0'..'9']) text)
+			(filter
+				(\line -> (take 2 line) == ":i")
+				(lines contentlist)
+			) :: [Int]
+		paths = [path ++ (show id) ++ "Statistics"| id <- agentIDs]
+	rawTexts <- sequence (map (\path -> readFile path) paths) :: IO [String]
+	--let rawAgentTexts = [ (text, path ++ (show id) ++ "Statistics") | id <- agentIDs, text <- readFile $ path ++ (show id) ++ "Statistics"]
+	return $ map  parseAgent $ zip rawTexts [path ++ (show id) ++ "src.hs" | id <- agentIDs]
 
-load :: String -> SimState -> IO (Simulation)
-load path simIn = do
-	folderscan <- scanFolder path
+load :: [String] -> SimState -> IO (Simulation)
+load paths simIn = do
+	--let scanpaths = (\ stuff path -> (liftM scanFolder path) ++ stuff) :: [(Agent, Int)] -> String -> IO ([(Agent, Int)])
+	--folderscan <- liftM (\ paths -> foldl (\ stuff path -> (scanFolder path) ++ stuff) [] paths) paths :: ([(Agent, Int)])
+	folderscan <- (liftM (foldl (++) []) $ mapM scanFolder paths)	
 	let
 		(loadedagents, tuples) = foldl
 			(\ (prevagents, prevtuples) (newagent, newVictories) -> (newagent : prevagents, (agentID newagent,newVictories) : prevtuples))
@@ -169,6 +223,4 @@ load path simIn = do
 		stats = map (\ (a,b) -> Statistics{aID = a, victories = b}) tuples,
 		sim = simIn
 	}
-
-testload = load 
 
