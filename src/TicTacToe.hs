@@ -96,8 +96,6 @@ getWinner (TTTField (_,_,'X') (_,'X',_) ('X',_,_)) = 'X'
 getWinner (TTTField (_,_,'O') (_,'O',_) ('O',_,_)) = 'O'
 getWinner x = ' '
 
-stuff agents =(,) <$> agents <*> agents
-
 initialTTTState = ()
 
 tttHelp :: [Agent] -> (Int, Int) -> ([Agent], Int)

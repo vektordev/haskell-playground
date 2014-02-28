@@ -10,7 +10,7 @@ data StatUpdate = StatUpdate{
 data Agent = Agent{
 	agentID :: Int,
 
-	sourcePath :: FilePath, --path to .hs source file. relative to TODO
+	sourcePath :: FilePath, --path to .hs source file. relative to executable
 
 	doFunc :: [String] -> Memory -> (Memory, [String]),
 	--ideally tries to solve a problem at hand.

@@ -1,4 +1,9 @@
 #global data. AgentIDs are absolutely unique.
 
 #maximum assigned ID
-:idmax 1
+#when assigning a ID, take the next free value and increment by one.
+:idmax 17
+
+#Agent subsets. Each one indicates a subfolder with agents and stat metadata in it.
+:set default
+

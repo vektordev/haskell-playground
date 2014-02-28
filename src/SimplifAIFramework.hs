@@ -6,17 +6,12 @@ import TicTacToe
 import Control.Monad
 import Data.Ord
 import Data.List
+import System.IO
+import AgentSetControl
 
 --------------------------------------------------------------------------------
 --------------------------------Test Data Below---------------------------------
 --------------------------------------------------------------------------------
-
-baseEvFunc :: [String] -> Memory -> (Memory, String)
-baseDoFunc :: [String] -> Memory -> (Memory, [String])
-baseEvFunc (source:othersources) mem = (2:mem, source)
-baseDoFunc ((a:b:[c]):(d:e:[f]):(g:h:[i]):[] ) mem = (1:mem, "1":"2":"3":"4":"5":"6":"7":"8":["9"])
---definitely need a random number generator in there^...
-
 someFunc =
 	let
 		st = map (\ (a,b) -> Statistics{aID = a, victories = b}) [(0,0),(1,0),(2,0),(3,0)]
@@ -49,7 +44,7 @@ someFunc =
 		}
 	in sim
 
-testLoad = load ["../data/default/"] $ sim someFunc
+--testLoad = load ["../data/default/"] $ sim someFunc
 
 test =
 	let (upd, state, ag) = update (sim someFunc) (agents someFunc)
@@ -79,16 +74,6 @@ statMerge upd base = foldl
 		base2))
 	base
 	(newVictories upd)
---statMerge upd base = Statistics{
---	victories = foldl
---		(\datamap key -> Data.IntMap.Lazy.update
---			(\count -> Just (count + 1))
---			key
---			datamap
---		)
---		(victories base)
---		(newVictories upd)
---	}
 
 data SimState =
 	forall state. SimState {
@@ -101,11 +86,11 @@ data SimState =
 
 --updates a SimState/Agents set and produces a StatUpdate in the process
 update :: SimState -> [Agent] -> (StatUpdate, SimState, [Agent])
-update (SimState s f) agents =
+update (SimState state func) agents =
 	let
-		(upd, ags, newstate) = f agents s
+		(upd, ags, newstate) = func agents state
 	in
-		(upd,SimState{state = newstate, stepFunc = f},ags)
+		(upd,SimState{state = newstate, stepFunc = func},ags)
 
 data Simulation = Simulation{
 	agents :: [Agent],
@@ -113,32 +98,47 @@ data Simulation = Simulation{
 	sim :: SimState
 }
 
+instance Show Simulation where 
+	show (Simulation {agents = ag, stats = stat, sim = state})= show(ag, stat)
+
 data Options = Options{
 	game :: String,
 	gameParams :: [String],
 	agentSets :: [String],
-	turns :: Int
+	numTurns :: Int,
+	path :: String
 }
 
-instance Show Simulation where 
-	show (Simulation {agents = ag, stats = stat, sim = state})= show(ag, stat) -- = show (ag, stat, state)
+--here be language shenanigans
+--to = id
+--add n to m = m+n
+--fancy function syntax. consider "to" to be part of the function name. ;-)
 
---run :: Options -> IO ()
---run opt =
---	let initialstate = 
---	in step s $ turns opt
+getSimulation :: String -> SimState
+getSimulation "TicTacToe" = SimState{
+	state = (),
+	stepFunc = tttFunc
+}
 
+step :: Simulation -> Int -> IO (Simulation)
+step s 0 = return s
+step s steps =
+	let
+		(statupdate, state, newAgents) = update (sim s) (agents s) 
+	in (step (Simulation{
+		agents = newAgents,
+		stats = statMerge statupdate $ stats s,
+		sim = state
+	}) (steps-1))
 
---step :: Simulation -> Int -> IO (Simulation)
---step s 0 = s
---step s steps =
---	let
---		(statupdate, state, newAgents) = update (sim s) (agents s) 
---	return step Simulation{
---		agents = newAgents,
---		stats = statMerge statupdate $ stats s,
---		sim = state
---	} (steps-1)
+run :: Options -> IO ()
+run opt = do
+	let
+		initialstate = Simulation { agents = [], stats = [], sim = getSimulation $ game opt }
+	fullSim <- (load [(path opt) ++ "default/"] initialstate) :: IO(Simulation)
+	let
+		a = step fullSim (numTurns opt)
+	return ()
 
 filterAgents :: [Agent] -> [Statistics] -> Int -> [Agent]
 --sort Agents, filter out the weaker ones, return a list of the num best Agents
@@ -194,7 +194,7 @@ parseAgent (file, path) =
 scanFolder :: String -> IO ([(Agent, Int)])
 --path should have / as last char
 scanFolder path = do
-	contentlist <- readFile $ path ++ "/AgentSetStats"
+	contentlist <- readFile $ path ++ "AgentSetStats"
 	let
 		agentIDs = map
 			(\ text -> read $ filter (`elem` ['0'..'9']) text)
@@ -204,23 +204,31 @@ scanFolder path = do
 			) :: [Int]
 		paths = [path ++ (show id) ++ "Statistics"| id <- agentIDs]
 	rawTexts <- sequence (map (\path -> readFile path) paths) :: IO [String]
-	--let rawAgentTexts = [ (text, path ++ (show id) ++ "Statistics") | id <- agentIDs, text <- readFile $ path ++ (show id) ++ "Statistics"]
 	return $ map  parseAgent $ zip rawTexts [path ++ (show id) ++ "src.hs" | id <- agentIDs]
 
-load :: [String] -> SimState -> IO (Simulation)
+load :: [String] -> Simulation -> IO (Simulation)
 load paths simIn = do
-	--let scanpaths = (\ stuff path -> (liftM scanFolder path) ++ stuff) :: [(Agent, Int)] -> String -> IO ([(Agent, Int)])
-	--folderscan <- liftM (\ paths -> foldl (\ stuff path -> (scanFolder path) ++ stuff) [] paths) paths :: ([(Agent, Int)])
 	folderscan <- (liftM (foldl (++) []) $ mapM scanFolder paths)	
 	let
 		(loadedagents, tuples) = foldl
 			(\ (prevagents, prevtuples) (newagent, newVictories) -> (newagent : prevagents, (agentID newagent,newVictories) : prevtuples))
 			([],[])
 			folderscan
-		--victoryMap = Data.IntMap.Lazy.fromList tuples
 	return Simulation{
-		agents = loadedagents,
-		stats = map (\ (a,b) -> Statistics{aID = a, victories = b}) tuples,
-		sim = simIn
+		agents = loadedagents ++ agents simIn,
+		stats = map (\ (a,b) -> Statistics{aID = a, victories = b}) tuples ++ stats simIn,
+		sim = sim simIn
 	}
 
+getAgentSets :: String -> IO([String])
+getAgentSets path = do
+	file <- readFile $ path ++ "/globalstats"
+	let subfolders = (map
+		(filter
+			(`elem` (['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9']))
+		)
+		(map (drop 4) $ filter
+			(\line -> (take 4 line) == ":set")
+			(lines file)
+		)) :: [String]
+	return subfolders
