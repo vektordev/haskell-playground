@@ -23,6 +23,7 @@ baseDoFunc ((a:b:[c]):(d:e:[f]):(g:h:[i]):[] ) mem = (1:mem, "1":"2":"3":"4":"5"
 --------------------------------------------------------------------------------
 
 storeAndMakeAgent :: String -> String -> String -> Int -> IO(Agent)
+--path and subset terminate with /
 storeAndMakeAgent sourcecode path subset parentID = do
 	id <- getNextAgentID path
 	let sourcepath = path ++ subset ++ (show id) ++ "src.hs"
@@ -48,7 +49,6 @@ getNextAgentID :: String -> IO (Int)
 getNextAgentID path = do
 	filehandle <- openFile (path ++ "/globalstats") ReadWriteMode
 	file <- hGetContents filehandle
-	print file
 	let id = read $ filter (`elem` ['0'..'9']) $ head (filter 
 			(\line -> (take 6 line) == ":idmax")
 			(lines file)
@@ -61,11 +61,9 @@ getNextAgentID path = do
 			else line
 		)
 		(lines file)
-	print newlines
 	hClose filehandle
 	filehandle2 <- openFile (path ++ "/globalstats") WriteMode
 	writable <- hIsWritable filehandle2
-	print writable
 	hPutStr filehandle2 $ unlines newlines
 	hClose filehandle2
 	return (id+1)

@@ -2,8 +2,8 @@
 
 #maximum assigned ID
 #when assigning a ID, take the next free value and increment by one.
-:idmax 17
+:idmax 1
+
 
 #Agent subsets. Each one indicates a subfolder with agents and stat metadata in it.
 :set default
-

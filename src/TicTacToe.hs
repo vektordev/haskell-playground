@@ -114,12 +114,14 @@ tttHelp agents (agAID,agBID) =
 				else x
 			) | x <- agents], winner)
 
-tttFunc :: [Agent] -> () -> (StatUpdate, [Agent], ())
-tttFunc agents _ =
+--probably needs a path to put new agents into. Should be split up by Simulations, so exposed / "contaminated" agents aren't mixed uncontrollably
+--TODO: create a set of agents that is designed to adapt to all environments quickly - general-purpose pool
+--	How would the quality funtion for such a pool look like? Probably, it would involve testing in all available scenarios without actually keeping memory of the event.
+tttFunc :: [Agent] -> () -> String -> IO (StatUpdate, [Agent], ())
+tttFunc agents _ writepath =
 	let
 		agentIDs = [agentID a | a <- agents]
 		--tuples = (,) <$> agentIDs <*> agentIDs
 		tuples = [(agentID x, agentID y)| x <- agents, y <- agents, (agentID x) /= (agentID y)]
 		(newAgents, winnerIDs) = mapAccumL tttHelp agents tuples
-	in
-		(StatUpdate{newVictories = winnerIDs},newAgents, ())
+	in 	return (StatUpdate{newVictories = winnerIDs},newAgents, ())

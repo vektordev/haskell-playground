@@ -46,9 +46,9 @@ someFunc =
 
 --testLoad = load ["../data/default/"] $ sim someFunc
 
-test =
-	let (upd, state, ag) = update (sim someFunc) (agents someFunc)
-	in Simulation{
+test = do
+	(upd, state, ag) <- update (sim someFunc) (agents someFunc) "../data/asdf"
+	return Simulation{
 		agents = ag,
 		stats = statMerge upd (stats someFunc),
 		sim= state
@@ -81,16 +81,15 @@ data SimState =
 		state :: state,
 
 		--function that steps the simulation
-		stepFunc :: [Agent] -> state -> (StatUpdate, [Agent], state)
+		stepFunc :: [Agent] -> state -> String -> IO(StatUpdate, [Agent], state)
 	}
 
 --updates a SimState/Agents set and produces a StatUpdate in the process
-update :: SimState -> [Agent] -> (StatUpdate, SimState, [Agent])
-update (SimState state func) agents =
-	let
-		(upd, ags, newstate) = func agents state
-	in
-		(upd,SimState{state = newstate, stepFunc = func},ags)
+update :: SimState -> [Agent] -> String -> IO (StatUpdate, SimState, [Agent])
+update (SimState state func) agents writepath = do
+	(upd, ags, newstate) <- func agents state writepath
+	return (upd,SimState{state = newstate, stepFunc = func},ags)
+--TODO^
 
 data Simulation = Simulation{
 	agents :: [Agent],
@@ -109,27 +108,21 @@ data Options = Options{
 	path :: String
 }
 
---here be language shenanigans
---to = id
---add n to m = m+n
---fancy function syntax. consider "to" to be part of the function name. ;-)
-
 getSimulation :: String -> SimState
 getSimulation "TicTacToe" = SimState{
 	state = (),
 	stepFunc = tttFunc
 }
 
-step :: Simulation -> Int -> IO (Simulation)
-step s 0 = return s
-step s steps =
-	let
-		(statupdate, state, newAgents) = update (sim s) (agents s) 
-	in (step (Simulation{
+step :: Simulation -> Int -> String -> IO (Simulation)
+step s 0 _ = return s
+step s steps writepath = do
+	(statupdate, state, newAgents) <- update (sim s) (agents s) writepath 
+	(step (Simulation{
 		agents = newAgents,
 		stats = statMerge statupdate $ stats s,
 		sim = state
-	}) (steps-1))
+	}) (steps-1) writepath)
 
 run :: Options -> IO ()
 run opt = do
@@ -137,7 +130,7 @@ run opt = do
 		initialstate = Simulation { agents = [], stats = [], sim = getSimulation $ game opt }
 	fullSim <- (load [(path opt) ++ "default/"] initialstate) :: IO(Simulation)
 	let
-		a = step fullSim (numTurns opt)
+		a = step fullSim (numTurns opt) (path opt)
 	return ()
 
 filterAgents :: [Agent] -> [Statistics] -> Int -> [Agent]
@@ -148,6 +141,7 @@ filterAgents agents stats num =
 		sortedandfiltered = take num sorted
 	in filter (\agent -> elem (agentID agent) (map aID sortedandfiltered)) agents
 
+--TODO: filter function with forced survival rate per inheritance line to sustain diversity
 
 --scanSubFolder :: [String] -> String -> IO ([(Agent, Int)])
 --scanSubFolder [] path = return []
@@ -232,3 +226,11 @@ getAgentSets path = do
 			(lines file)
 		)) :: [String]
 	return subfolders
+
+--clearDataFolder :: String -> IO ()
+--clearDataFolder path = 
+	--TODO: acquire confirmation first.
+	--read all subsets from globalstats
+	--delete path++globalstats
+	--delete all substat folders
+	--recreate globalstats and default agents
