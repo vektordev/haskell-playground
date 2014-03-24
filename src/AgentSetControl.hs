@@ -30,8 +30,10 @@ storeAndMakeAgent sourcecode path subset parentID = do
 	--create file if need be?!
 	srchandle <- openFile sourcepath WriteMode
 	hPutStr srchandle sourcecode
+	hClose srchandle
 	stathandle <- openFile (path ++ subset ++ (show id) ++ "Statistics") WriteMode
 	hPutStr stathandle $ getNewStats id parentID
+	hClose stathandle
 	--(doF, evF) <- compile sourcepath --TODO: I just want to live.
 	let (doF, evF) = (baseDoFunc,baseEvFunc)--TODO: KILL ME!
 	return Agent{
