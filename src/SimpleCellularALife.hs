@@ -29,6 +29,15 @@ type Coordinates = (Int, Int)
 --place Agents
 --run Simulation
 
+data Decision = Left | Right | Up | Down |  Attack | Harvest
+
+--decide :: Agent -> Decision
+
+--runSimulation :: World -> World
+--runSimulation w =
+--	let decisions = map decide (concat $ map entities $ elems $ tiles w)
+--	in w
+
 getRandomEmptyTile :: RandomGen t => t -> (Tile, t)
 getRandomEmptyTile g =
 	let (i, g2) = next g
