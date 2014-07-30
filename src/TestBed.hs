@@ -5,12 +5,16 @@ import Data.Ratio
 import Data.Maybe
 import Data.List
 import System.IO
+import Data.Number.CReal
 --import Graphics.Vty.Widgets.All
 --import UI.NCurses
 
 --main = putStrLn (show $ tailfib 0 1 100000)
 
 import qualified Data.Text as T
+
+main :: IO()
+main = print prefix2stats
 
 --main :: IO ()
 --main = do
@@ -24,6 +28,15 @@ import qualified Data.Text as T
 --	e `onActivate` \this ->
 --		getEditText this >>= (error . ("You entered: " ++) T.unpack)
 --	runUi c defaultContext
+
+--graph isomery? (x, y) is edge, x,y Int
+--(x,y) => no other (x,y) or (y,x) exists
+--interconnectivity: for any x,y -> chain x, a, b, ... y exists
+
+--x `isomer` y
+--edgeCount == edgeCount
+--edgeCount for each vertex is a permutation of the other graph's
+--try renaming every node of x to match every name in y. Abort if edge count doesn't match. If doesn't work, not isomer
 
 term :: Int -> [String]
 term 0 = [""]
@@ -187,11 +200,48 @@ fibseqcutoff :: Integral a => [a]
 fibseqcutoff = 
 	let help a b = (mod (a+b) 10000000000000000000000000000000000000000^2): help b (a+b)
 	in help 0 1
-
+	
 fibseq :: Integral a => [a]
 fibseq = 
 	let help a b = (a+b): help b (a+b)
 	in help 0 1
+	
+trifibseq :: [CReal]
+trifibseq =
+	let help a b c = (a+b+c) : help b c (a+b+c)
+	in help 0 0 1
+	
+sequenceRatio :: [CReal] -> [CReal]
+sequenceRatio (x : y : xs) = (y / x) : sequenceRatio (y:xs)
+sequenceRatio x = []
+
+test = sequenceRatio trifibseq
+	
+getFirstDigit n = if n >= 10 then getFirstDigit (div n 10) else n
+
+first2LettersOfFibo = map (first2ofStr . show) fibseq
+
+first2ofStr :: String -> String
+first2ofStr str = if null $ tail $ str then (take 1 str) else take 2 str
+
+prefix2stats = map (\grp -> (length grp, head grp)) $ group $ sort $ take 10000 $ drop 4 first2LettersOfFibo
+
+firstLettersOfFibo = map (head . show) fibseq
+
+fibStr :: String
+fibStr = concatMap (\n -> show n) fibseq
+	
+prefix :: String -> Char -> Int
+prefix [] _ = 0
+prefix (char:str) c = if c /= char then 0 else 1 + (prefix str char)
+
+prefAll :: String -> [(Int, Int, Char)]
+prefAll [] = []
+prefAll str =
+	let func str n = ((prefix str $head str), n, head str) : (func (tail str) (n+1))
+	in func str 0
+
+prefixFibo minPrefLen = filter (\(n, _, _) -> n >= minPrefLen) $ prefAll fibStr
 
 divs n = [x | x <- [1..n], mod n x == 0]
 divsum n = sum $ divs n
@@ -340,6 +390,8 @@ primes 1 = []
 primes n = if(prime n)
 	then n : (primes (n-1))
 	else primes (n-1)
+	
+primes' n = take n $ filter prime [1..]
 
 primes2 :: Int -> [Int]
 primes2 n = [primes | primes <- [1..n], prime primes]

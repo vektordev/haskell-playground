@@ -1,6 +1,12 @@
+--header: preproc definitions / safety declarations
+
+-- /header
+
 --imports
 
 -- /imports
+
+--Strong typing for doFunc's [String] param/retval - possibly giving information about the simulation the AI is in?
 
 doFunc :: [String] -> Memory -> (Memory, [String])
 evFunc :: [String] -> Memory -> (Memory, String)
